@@ -1,17 +1,25 @@
-#include"../include/Socket.h"
-#include "../include/util.h"
-#include<sys/socket.h>
-#include<fcntl.h>
-#include<unistd.h>
-Socket::Socket(){
+#include "../include/Socket.h"
+
+InetAddress::InetAddress():addrlen(sizeof(addr)){
+    bzero(&addr, addrlen);
+}
+InetAddress::~InetAddress(){}
+InetAddress::InetAddress( const char* ip,uint16_t port ){
+    addr.sin_addr.s_addr = inet_addr(ip);
+    addr.sin_port = htons(port);
+    addr.sin_family = AF_INET;
+    addrlen = sizeof(addr);
+}
+
+Socket::Socket():fd(-1){
     fd = socket(AF_INET, SOCK_STREAM, 0);
-    errif(fd == -1, "socket error");
+    ErrorIf(fd == 1, "create socket failed\n");
 }
-
-Socket::Socket(int lfd):fd(lfd){
-    errif(fd == -1, "socket error");    
+Socket::Socket( int _fd):fd(_fd){
+    ErrorIf(fd == -1,"Socket error\n");
+    
 }
-
+// 当sokcet 关闭时 将 fd 置为-1
 Socket::~Socket(){
     if(fd != -1){
         close(fd);
@@ -20,21 +28,25 @@ Socket::~Socket(){
 }
 
 void Socket::Bind(InetAddress* IA){
-    errif(bind(fd, (struct sockaddr*)&IA->addr, IA->addr_len)==-1,"bind error");
-}
+  ErrorIf(bind(fd,(sockaddr*)(&IA->addr),IA->addrlen)!= 0,"bind failed\n");
 
-void Socket::Listen(){
-    errif(listen(fd, 5)==-1, "listen error");
-}
-void Socket::setnonblocking(){
-    fcntl(fd, F_SETFL, fcntl(fd,F_GETFL) |O_NONBLOCK);
 }
 
 int Socket::Accept(InetAddress* IA){
-    int cfd = accept(fd,(sockaddr*)&IA->addr,&IA->addr_len);
-    errif(cfd == -1, "accept() failed");
-    return cfd;
+    int clnt_sockfd = ::accept(fd,(sockaddr*)(&IA->addr),&IA->addrlen);
+    
+    ErrorIf(clnt_sockfd == -1, "accept() failed");
+    return clnt_sockfd;
 }
-int Socket::getFd(){
+
+int Socket::get_fd(){
     return fd;
+}
+// 设置描述符为非阻塞
+void Socket::setnoBlock(){
+    fcntl(fd,F_SETFL,fcntl(fd, F_GETFL)|O_NONBLOCK);
+}
+
+void Socket::Listen(int backlog){
+    ErrorIf(listen(fd, backlog) == -1,"listen failed\n");
 }
